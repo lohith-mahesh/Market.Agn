@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>XAI Double Dueling DQN Terminal</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background-color: #000; color: #fff; font-family: monospace; font-size: 13px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.header { text-align: center; font-size: 16px; font-weight: bold; border-bottom: 2px solid #fff; padding: 8px; text-transform: uppercase; }
+.main-content { display: flex; flex-direction: row; flex-grow: 1; padding: 10px; gap: 10px; }
+.col { display: flex; flex-direction: column; gap: 10px; }
+.col-left { width: 340px; flex-shrink: 0; }
+.col-center { flex-grow: 1; border: 2px solid #fff; position: relative; }
+.col-right { width: 340px; flex-shrink: 0; }
+.box { border: 2px solid #fff; padding: 10px; }
+.row { display: flex; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px dotted #444; padding-bottom: 2px; }
+.row span:nth-child(2) { font-weight: bold; }
+canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.tape { flex-grow: 1; overflow-y: hidden; display: flex; flex-direction: column; justify-content: flex-end; height: 150px; }
+.tape-entry { border-bottom: 1px dashed #333; padding: 3px 0; }
+button { background: #000; color: #fff; border: 2px solid #fff; padding: 8px; font-family: inherit; font-weight: bold; cursor: pointer; text-transform: uppercase; width: 100%; margin-top: 5px; transition: 0.1s; }
+button:hover:not(:disabled) { border-style: dashed; }
+button:active:not(:disabled) { background: #fff; color: #000; }
+button:disabled { border-color: #444; color: #444; cursor: not-allowed; }
+input[type="range"] { width: 100%; margin: 10px 0; }
+.cooldown-bar-container { width: 100%; height: 5px; background: #222; margin-top: 10px; }
+.cooldown-bar { width: 0%; height: 100%; background: #fff; transition: width 0.1s linear; }
+.fatal-state { background-color: #fff; color: #000; padding: 5px; font-weight: bold; text-align: center; }
+.xai-title { text-decoration: underline; margin-bottom: 10px; text-align: center; }
+.xai-grid { display: grid; grid-template-columns: 40px repeat(3, 1fr); gap: 2px; font-size: 11px; text-align: center; }
+.xai-cell { border: 1px solid #444; padding: 6px 2px; display: flex; align-items: center; justify-content: center; background: #000; color: #888; }
+.xai-header { border: none; background: transparent; color: #fff; font-weight: bold; justify-content: flex-end; padding-right: 5px; }
+.xai-header-col { border: none; background: transparent; color: #fff; font-weight: bold; justify-content: center; padding-bottom: 5px; }
+.xai-active { background: #fff !important; color: #000 !important; font-weight: bold; border-color: #fff; }
+</style>
+</head>
+<body>
+<div class="header">Double Dueling DQN | XAI Matrix</div>
+<div class="main-content">
+    <div class="col col-left">
+        <div class="box">
+            <div style="text-decoration: underline; margin-bottom: 10px;">PORTFOLIO STATE</div>
+            <div class="row"><span>Realized PnL:</span><span id="pnl">-</span></div>
+            <div class="row"><span>Asset Mid:</span><span id="mid">-</span></div>
+            <div class="row"><span>Net Inventory:</span><span id="inv">-</span></div>
+            <div class="row"><span>Flow Imbalance:</span><span id="obi">-</span></div>
+            <div class="row"><span>Network Loss:</span><span id="loss">-</span></div>
+            <div class="row"><span>Exploration (Eps):</span><span id="eps">-</span></div>
+        </div>
+        
+        <div class="box">
+            <div class="xai-title">XAI: REAL-TIME ADVANTAGE TENSORS A(s,a)</div>
+            <div class="xai-grid">
+                <div></div>
+                <div class="xai-header-col">Ask 1</div>
+                <div class="xai-header-col">Ask 5</div>
+                <div class="xai-header-col">Ask 15</div>
+                
+                <div class="xai-header">Bid 1</div>
+                <div class="xai-cell" id="adv-0">-</div>
+                <div class="xai-cell" id="adv-1">-</div>
+                <div class="xai-cell" id="adv-2">-</div>
+                
+                <div class="xai-header">Bid 5</div>
+                <div class="xai-cell" id="adv-3">-</div>
+                <div class="xai-cell" id="adv-4">-</div>
+                <div class="xai-cell" id="adv-5">-</div>
+                
+                <div class="xai-header">Bid 15</div>
+                <div class="xai-cell" id="adv-6">-</div>
+                <div class="xai-cell" id="adv-7">-</div>
+                <div class="xai-cell" id="adv-8">-</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col col-center" id="canvas-container">
+        <canvas id="chart"></canvas>
+    </div>
+    
+    <div class="col col-right">
+        <div class="box">
+            <div style="text-decoration: underline; margin-bottom: 10px;">SIMULATION CLOCK</div>
+            <span>Playback Speed (Tick Rate): <span id="speed-val">100ms</span></span>
+            <input type="range" id="sim-speed" min="20" max="1000" value="100" step="20" oninput="updateSpeed()">
+        </div>
+        <div class="box">
+            <div style="text-decoration: underline; margin-bottom: 10px; text-align: center;">INSTITUTIONAL WHALE ROUTER</div>
+            <div style="font-size: 11px; text-align: center; margin-bottom: 10px;">Strict 5-Second API Rate Limit</div>
+            <input type="number" id="w-vol" value="250" style="width: 100%; background: #000; color: #fff; border: 1px solid #fff; padding: 5px; text-align: center;">
+            <button id="btn-buy" onclick="sendWhale('buy')">SWEEP ASKS (MARKET BUY)</button>
+            <button id="btn-sell" onclick="sendWhale('sell')">DUMP BIDS (MARKET SELL)</button>
+            <div class="cooldown-bar-container"><div class="cooldown-bar" id="cd-bar"></div></div>
+            <div id="cd-text" style="font-size: 10px; text-align: center; margin-top: 5px; color: #aaa;">SYSTEM READY</div>
+        </div>
+        <div class="box" style="flex-grow: 1; display: flex; flex-direction: column;">
+            <div style="text-decoration: underline; margin-bottom: 5px;">L2 TAPE</div>
+            <div class="tape" id="tape"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let tickRate = 100;
+let simTimer;
+
+function updateSpeed() {
+    tickRate = document.getElementById('sim-speed').value;
+    document.getElementById('speed-val').innerText = tickRate + "ms";
+    clearTimeout(simTimer);
+    tickLoop();
+}
+
+async function sendWhale(dir) {
+    const vol = document.getElementById('w-vol').value;
+    const res = await fetch('/whale', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: dir, volume: parseInt(vol)})
+    });
+    const data = await res.json();
+    if(data.status === 'ok') {
+        lockButtons();
+    }
+}
+
+function lockButtons() {
+    document.getElementById('btn-buy').disabled = true;
+    document.getElementById('btn-sell').disabled = true;
+}
+
+function unlockButtons() {
+    document.getElementById('btn-buy').disabled = false;
+    document.getElementById('btn-sell').disabled = false;
+}
+
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+let hist = [];
+
+function draw() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(hist.length === 0) return;
+    
+    const prices = hist.map(d => [d.bid, d.mid, d.ask]).flat();
+    const minP = Math.min(...prices) - 0.2;
+    const maxP = Math.max(...prices) + 0.2;
+    const range = maxP - minP;
+    
+    const padX = 10;
+    const padY = 20;
+    const rightMargin = 70;
+    const drawW = canvas.width - rightMargin - padX;
+    const drawH = canvas.height - (padY * 2);
+    
+    ctx.font = "12px monospace";
+    ctx.fillStyle = "#888";
+    ctx.strokeStyle = "#333";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 1;
+
+    const steps = 5;
+    for(let i=0; i<=steps; i++) {
+        const p = maxP - (range * (i / steps));
+        const y = padY + (drawH * (i / steps));
+        ctx.beginPath();
+        ctx.moveTo(padX, y);
+        ctx.lineTo(padX + drawW, y);
+        ctx.stroke();
+        ctx.fillText(p.toFixed(2), padX + drawW + 5, y);
+    }
+    
+    const stepX = drawW / Math.max(1, hist.length - 1);
+    
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.strokeStyle = '#fff';
+    hist.forEach((d, i) => {
+        const x = padX + (i * stepX);
+        const y = padY + drawH - ((d.mid - minP) / range * drawH);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.strokeStyle = '#888';
+    hist.forEach((d, i) => {
+        const x = padX + (i * stepX);
+        const y = padY + drawH - ((d.ask - minP) / range * drawH);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.strokeStyle = '#888';
+    hist.forEach((d, i) => {
+        const x = padX + (i * stepX);
+        const y = padY + drawH - ((d.bid - minP) / range * drawH);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+}
+
+function updateTape(trade) {
+    if (trade === "-") return;
+    const tape = document.getElementById('tape');
+    const el = document.createElement('div');
+    el.className = 'tape-entry';
+    el.innerText = trade;
+    if (trade.includes('WHALE')) el.style.fontWeight = 'bold';
+    tape.appendChild(el);
+    if (tape.children.length > 20) tape.removeChild(tape.firstChild);
+}
+
+function updateXAI(adv, action) {
+    for(let i=0; i<9; i++) {
+        const cell = document.getElementById('adv-' + i);
+        cell.innerText = adv[i].toFixed(2);
+        if(i === action) {
+            cell.className = "xai-cell xai-active";
+        } else {
+            cell.className = "xai-cell";
+        }
+    }
+}
+
+async function tickLoop() {
+    try {
+        const res = await fetch('/data');
+        const data = await res.json();
+        const l = data.latest;
+        
+        document.getElementById('pnl').innerText = "$" + l.pnl.toFixed(2);
+        document.getElementById('mid').innerText = "$" + l.mid.toFixed(2);
+        document.getElementById('inv').innerText = l.inv;
+        document.getElementById('obi').innerText = l.obi.toFixed(3);
+        document.getElementById('loss').innerText = l.loss.toFixed(4);
+        document.getElementById('eps').innerText = l.eps.toFixed(3);
+        
+        updateXAI(l.adv, l.action);
+        
+        const cdBar = document.getElementById('cd-bar');
+        const cdText = document.getElementById('cd-text');
+        
+        if (l.cooldown > 0) {
+            lockButtons();
+            let pct = (l.cooldown / 5.0) * 100;
+            cdBar.style.width = pct + "%";
+            cdText.innerText = "COOLDOWN: " + l.cooldown.toFixed(1) + "s";
+        } else {
+            unlockButtons();
+            cdBar.style.width = "0%";
+            cdText.innerText = "SYSTEM READY";
+        }
+        
+        updateTape(l.trade);
+        hist = data.history;
+        draw();
+        
+        if(l.liquidated) {
+            const tape = document.getElementById('tape');
+            const el = document.createElement('div');
+            el.className = 'tape-entry';
+            el.innerText = "FATAL: MARGIN CALL EXECUTED.";
+            el.style.color = "red";
+            tape.appendChild(el);
+            return;
+        }
+    } catch(e) {}
+    simTimer = setTimeout(tickLoop, tickRate);
+}
+tickLoop();
+</script>
+</body>
+</html>
