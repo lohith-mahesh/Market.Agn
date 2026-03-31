@@ -100,19 +100,21 @@ input[type="range"] { width: 100%; margin: 10px 0; }
 </div>
 
 <script>
+const SESSION_ID = crypto.randomUUID();
+
 let tickRate = 100;
 let simTimer;
 
 function updateSpeed() {
-    tickRate = document.getElementById('sim-speed').value;
+    // Passively update the tickRate variable without forcibly restarting the loop.
+    // The existing async loop will pick up this new integer on its next setTimeout cycle.
+    tickRate = parseInt(document.getElementById('sim-speed').value);
     document.getElementById('speed-val').innerText = tickRate + "ms";
-    clearTimeout(simTimer);
-    tickLoop();
 }
 
 async function sendWhale(dir) {
     const vol = document.getElementById('w-vol').value;
-    const res = await fetch('/whale', {
+    const res = await fetch(`/whale?session_id=${SESSION_ID}`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({action: dir, volume: parseInt(vol)})
@@ -229,7 +231,7 @@ function updateXAI(adv, action) {
 
 async function tickLoop() {
     try {
-        const res = await fetch('/data');
+        const res = await fetch(`/data?session_id=${SESSION_ID}`);
         const data = await res.json();
         const l = data.latest;
         
@@ -270,6 +272,7 @@ async function tickLoop() {
             return;
         }
     } catch(e) {}
+    
     simTimer = setTimeout(tickLoop, tickRate);
 }
 tickLoop();
