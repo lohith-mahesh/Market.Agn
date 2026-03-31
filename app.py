@@ -1,3 +1,4 @@
+# Refactored on 2026-03-31 10:26:49 IST
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse
@@ -98,7 +99,6 @@ class QuantEngineEnv:
         self.last_whale_time = 0.0
         self.liquidated = False
         self.last_loss = 0.0
-        self.weight_path = "dddqn_hfmm_weights.pth"
 
     # Rate-limited endpoint logic for toxic flow injection
     def trigger_whale(self, direction, volume):
@@ -341,36 +341,20 @@ async def get_ui():
         return HTMLResponse(f"<h1>Error: index.html not found.</h1><p>Ensure it is saved exactly at: {html_path}</p>", status_code=404)
     return FileResponse(html_path)
 
+# Removed the async keyword here. 
+# FastAPI will now run this blocking CPU task in a background threadpool, freeing up the event loop.
 @app.get("/data")
-async def get_data(session_id: str):
-    # The main synchronous bottleneck: ticking the env on every HTTP GET request
+def get_data(session_id: str):
     env = get_session_env(session_id)
     return {"latest": env.step(), "history": env.history}
 
+# Removed the async keyword here as well for consistency.
 @app.post("/whale")
-async def process_whale(action: WhaleAction, session_id: str):
+def process_whale(action: WhaleAction, session_id: str):
     env = get_session_env(session_id)
     success = env.trigger_whale(action.action, action.volume)
     if success: return {"status": "ok"}
     else: return {"status": "rate_limited"}
-
-@app.post("/save")
-async def save_model(session_id: str):
-    env = get_session_env(session_id)
-    # Serialize the network weights to disk
-    torch.save(env.net.state_dict(), env.weight_path)
-    return {"status": "saved"}
-
-@app.post("/load")
-async def load_model(session_id: str):
-    env = get_session_env(session_id)
-    if os.path.exists(env.weight_path):
-        # Load weights and copy to target net to prevent desync
-        env.net.load_state_dict(torch.load(env.weight_path))
-        env.target_net.load_state_dict(env.net.state_dict())
-        env.epsilon = env.epsilon_min 
-        return {"status": "loaded"}
-    return {"status": "not_found"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=7860)
