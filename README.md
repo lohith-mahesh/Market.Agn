@@ -24,7 +24,7 @@ The simulator models market microstructure mechanics to train the agent against 
 * **Reward Shaping:** The raw step profit/loss is adjusted using a rolling Sortino ratio (to penalize downside deviation) and an Avellaneda-Stoikov quadratic inventory penalty: $Penalty = 0.5 \times (\frac{Inventory}{Limit})^2$.
 
 ### 3. Backend & Session Management
-* [cite_start]**Framework:** FastAPI serving asynchronous HTTP endpoints.
+* **Framework:** FastAPI serving asynchronous HTTP endpoints.
 * **Concurrency:** Multi-tenant session isolation is handled via client-side cryptographic UUIDs. 
 * **Garbage Collection:** Environments inactive for 5 minutes are destroyed to prevent memory leaks.
 
@@ -35,6 +35,6 @@ The simulator models market microstructure mechanics to train the agent against 
 * Docker (Optional)
 
 ### Local Deployment
-1. [cite_start]Install dependencies from the `requirements.txt` file:
+1. Install dependencies from the `requirements.txt` file:
    ```bash
    pip install -r requirements.txt
