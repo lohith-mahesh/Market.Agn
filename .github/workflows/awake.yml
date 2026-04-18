@@ -1,11 +1,10 @@
-name: Keep Spaces Awake
+name: Keep Space Awake
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 12 * * *'
   workflow_dispatch:
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Market Agn
-        run: curl -I https://lohithmahesh-market-agn.hf.space/
+       - run: curl -I https://lohithmahesh-market-agn.hf.space/
